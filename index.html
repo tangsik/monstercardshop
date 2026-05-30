@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#43301f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Monster Card Shop">
+  <meta name="description" content="몬스터 카드샵을 운영하며 손님에게 카드팩을 판매하는 방치형 게임">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <title>Monster Card Shop</title>
+  <link rel="stylesheet" href="css/style.css?v=32">
+</head>
+<body>
+<div id="game-container">
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-stat hud-level" id="hud-level"><span class="lvl-tag">Lv</span><span id="level-display">1</span></div>
+    <div class="hud-stat"><span class="ic" id="ic-money"></span><span id="money-display">$500</span></div>
+    <div class="hud-stat hud-clickable" id="hud-star" onclick="openStarShop()"><span class="ic" id="ic-star"></span><span id="stars-display">0</span></div>
+    <div class="hud-stat hud-clickable" id="hud-gem" onclick="openGemShop()"><span class="ic" id="ic-gem"></span><span id="gems-display">0</span></div>
+  </div>
+
+  <!-- CANVAS SHOP -->
+  <div id="shop-wrap">
+    <canvas id="shop-canvas"></canvas>
+    <div id="levelup-banner"></div>
+    <div id="gacha-result"></div>
+    <div id="notice-box"></div>
+
+    <!-- AD REWARD BUTTONS (좌측, 일정시간마다 등장) -->
+    <div id="reward-stack">
+      <button class="reward-fab rfab-buff" id="rfab-buff" onclick="confirmAd('buff')" aria-label="손님 폭주 버프">
+        <span class="rfab-ic"></span><span class="rfab-ad">AD</span>
+      </button>
+      <button class="reward-fab rfab-gem" id="rfab-gem" onclick="confirmAd('gem')" aria-label="다이아 보상">
+        <span class="rfab-ic"></span><span class="rfab-ad">AD</span>
+      </button>
+      <button class="reward-fab rfab-money" id="rfab-money" onclick="confirmAd('money')" aria-label="머니 보상">
+        <span class="rfab-ic"></span><span class="rfab-ad">AD</span>
+      </button>
+    </div>
+
+    <!-- 샵 이름 + 점원 선택 (최초 1회) -->
+    <div id="name-entry">
+      <div id="ne-box">
+        <div id="ne-title">카드샵을 열어볼까요?</div>
+        <div id="ne-sub">샵 이름을 정하고 카운터 직원을 골라 주세요</div>
+        <input id="ne-input" type="text" maxlength="22" placeholder="예) 별빛 카드샵" autocomplete="off" />
+        <div id="ne-hint">한글·영문·숫자 모두 OK · 최대 22자</div>
+        <div id="ne-clerk-label">카운터 직원</div>
+        <div id="ne-clerk">
+          <button class="ne-clerk-btn selected" data-id="man_staff"   onclick="selectClerk('man_staff')">
+            <img src="assets/characters/man_staff.png?v=3" alt=""><span>남성</span>
+          </button>
+          <button class="ne-clerk-btn"          data-id="woman_staff" onclick="selectClerk('woman_staff')">
+            <img src="assets/characters/woman_staff.png?v=3" alt=""><span>여성</span>
+          </button>
+        </div>
+        <button id="ne-go" onclick="submitShopName()">샵 열기 ▶</button>
+      </div>
+    </div>
+
+    <!-- 현금 결제 확인 -->
+    <div id="cash-confirm">
+      <div id="cc-box">
+        <div id="cc-tag">현금 결제</div>
+        <div id="cc-title">자동 재고</div>
+        <div id="cc-price">₩<span id="cc-price-num">5,000</span></div>
+        <div id="cc-msg">
+          이 아이템은 <b>실제 결제 항목</b>입니다.<br>
+          한 번 결제하면 영구 적용돼요.
+          <div class="cc-note">
+            출시 후 Google Play / App Store 결제로 연동됩니다.<br>
+            지금은 <b>개발용 테스트 활성화</b>로 확인하세요.
+          </div>
+        </div>
+        <div id="cc-btns">
+          <button id="cc-cancel" onclick="closeCashConfirm()">닫기</button>
+          <button id="cc-test"   onclick="cashPurchaseTestActivate()">테스트 활성화</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 자리 비움 수익 팝업 -->
+    <div id="offline-popup">
+      <div id="op-box">
+        <div id="op-title">★ 영업 계속!</div>
+        <div id="op-sub">자리를 비운 동안 매장이 운영됐어요</div>
+        <div id="op-time">
+          <div class="op-time-label">자리 비운 시간</div>
+          <div class="op-time-val" id="op-time-val"></div>
+        </div>
+        <div id="op-earn">
+          <div class="op-earn-label">획득 골드</div>
+          <div class="op-earn-val" id="op-earn-val"></div>
+        </div>
+        <div class="op-note">기본 수익률의 45%만 지급 · 최대 4시간까지</div>
+        <button id="op-claim" onclick="closeOfflinePopup()">확인 ▶</button>
+      </div>
+    </div>
+
+    <!-- 매장 테마 선택 -->
+    <div id="theme-picker">
+      <div id="tp-box">
+        <button id="tp-close" onclick="closeThemePicker()">✕</button>
+        <div id="tp-title">🎨 매장 테마</div>
+        <div id="tp-sub">매장 벽·카운터 색상을 골라 보세요</div>
+        <div id="tp-grid"></div>
+      </div>
+    </div>
+
+    <!-- 카드 상세 모달 -->
+    <div id="card-detail">
+      <div id="cd-box">
+        <button id="cd-close" onclick="closeCardDetail()">✕</button>
+        <div id="cd-rarity"></div>
+        <img id="cd-img" src="" alt="">
+        <div id="cd-name"></div>
+        <div id="cd-count"></div>
+        <div id="cd-section">
+          <div class="cd-row"><span class="cd-l">중복 판매가</span><span class="cd-v" id="cd-sell"></span></div>
+          <div class="cd-row"><span class="cd-l">전시 기본가</span><span class="cd-v" id="cd-base"></span></div>
+        </div>
+        <div id="cd-drops-title">획득 가능 팩</div>
+        <div id="cd-drops"></div>
+      </div>
+    </div>
+
+    <!-- 일일 출석 보상 -->
+    <div id="daily-reward">
+      <div id="dr-box">
+        <div id="dr-title">★ 일일 출석 보상</div>
+        <div id="dr-sub">매일 들러서 보상을 받으세요!</div>
+        <div id="dr-grid"></div>
+        <div id="dr-info">연속 출석 <b id="dr-streak">1</b>일째</div>
+        <button id="dr-claim" onclick="claimDaily()">보상 받기 ▶</button>
+      </div>
+    </div>
+
+    <!-- 청소부 교체 확인 -->
+    <div id="hire-confirm">
+      <div id="hc-box">
+        <div id="hc-tag">청소부 교체</div>
+        <div id="hc-title">중급 청소부 고용</div>
+        <div id="hc-row">
+          <div class="hc-side hc-old">
+            <div class="hc-label">해고</div>
+            <div class="hc-img-wrap"><img id="hc-old-img" src="" alt=""></div>
+            <div class="hc-name" id="hc-old-name">초급 청소부</div>
+          </div>
+          <div id="hc-arrow">▶</div>
+          <div class="hc-side hc-new">
+            <div class="hc-label">고용</div>
+            <div class="hc-img-wrap"><img id="hc-new-img" src="" alt=""></div>
+            <div class="hc-name" id="hc-new-name">중급 청소부</div>
+          </div>
+        </div>
+        <div id="hc-cost">결제 금액 <b id="hc-cost-val">$500K</b></div>
+        <div class="hc-note">기존 청소부는 자동 해고되고, 신규 청소부가 즉시 매장에 배치됩니다.</div>
+        <div id="hc-btns">
+          <button id="hc-cancel" onclick="closeHireConfirm()">취소</button>
+          <button id="hc-yes"    onclick="confirmHire()">교체하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 환생 시스템 소개 (Lv30 도달시 1회) -->
+    <div id="prestige-intro">
+      <div id="pi-box">
+        <div id="pi-title">★ 환생 시스템 해금!</div>
+        <div id="pi-msg">
+          Lv 30 달성을 축하해요!<br>
+          이제 매장 <b>환생</b>을 통해 영구 보너스를 받을 수 있어요.
+          <div class="pc-section pc-reward">
+            <b>환생 보상</b>: 영구 판매 수익 <span class="pc-mul">+40% (누적)</span>
+          </div>
+          <div class="pc-section pc-keep">
+            <b>유지되는 것</b><br>카드 도감 · 별 · 다이아 · 별 상점 업그레이드
+          </div>
+          <div class="pc-section pc-reset">
+            <b>리셋되는 것</b><br>돈 · 레벨 · 진열대 · 업그레이드 · 전시 슬롯
+          </div>
+          <div class="pi-note">
+            지금 바로 안 해도 OK — <b>매장을 계속 운영해도 됩니다.</b><br>
+            준비되면 별 상점(⭐)에서 언제든 환생할 수 있어요.
+          </div>
+        </div>
+        <div id="pi-btns">
+          <button id="pi-later" onclick="closePrestigeIntro()">계속 운영하기</button>
+          <button id="pi-now"   onclick="openStarFromIntro()">별 상점 보기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lv50 환생 권유 팝업 -->
+    <div id="prestige-lv50">
+      <div id="p50-box">
+        <div id="p50-crown">👑</div>
+        <div id="p50-title">Lv 50 달성!</div>
+        <div id="p50-msg">
+          대단해요! 이제 <b>환생</b>을 강력히 추천드려요.<br><br>
+          <div class="p50-row">
+            <span class="p50-icon">🔄</span>
+            <span>환생 1회마다 <b class="p50-hl">판매 수익 +40%</b> 영구 적용</span>
+          </div>
+          <div class="p50-row">
+            <span class="p50-icon">💎</span>
+            <span>카드 도감 · 다이아 · 별은 <b>그대로 유지</b></span>
+          </div>
+          <div class="p50-row">
+            <span class="p50-icon">⚡</span>
+            <span>Lv30 해금이라 지금 바로 가능!</span>
+          </div>
+          <div class="pi-note" style="margin-top:10px">
+            돈·레벨·진열대는 리셋되지만 수익 보너스로<br>
+            <b>훨씬 빠르게 다시 성장</b>할 수 있어요.
+          </div>
+        </div>
+        <div id="p50-btns">
+          <button id="p50-later" onclick="closePrestigeLv50()">계속 운영</button>
+          <button id="p50-now"   onclick="openStarFromLv50()">환생하기 ⭐</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 진열 팩 변경 기능 해금 안내 (Lv10 1회) -->
+    <div id="pack-change-intro">
+      <div id="pci-box">
+        <div id="pci-title">🃏 새 기능 해금!</div>
+        <div id="pci-msg">
+          <b>Lv 10</b> 달성으로 새 기능이 열렸어요!<br><br>
+          이제 카드 가격 설정 패널에서<br>
+          <b>진열 팩 변경</b> — 진열대마다 팩 종류 교체<br>
+          <b>본관 전체 일괄 교체</b> — 한 번에 바꾸기<br><br>
+          진열대를 탭해서 사용해보세요!
+        </div>
+        <div id="pci-btns">
+          <button id="pci-ok" onclick="closePackChangeIntro()">확인!</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 별관 해금 안내 (Lv20 1회) -->
+    <div id="annex-intro">
+      <div id="ai-box">
+        <div id="ai-title">🏪 별관 해금 가능!</div>
+        <div id="ai-msg">
+          <b>Lv 20</b> 달성으로 별관을 열 수 있어요!<br><br>
+          별관은 손님들이 <b>1:1 카드 배틀</b>을 벌이는 공간이에요.<br>
+          테이블 6개 + 진열대 3개가 추가됩니다.
+          <div class="ai-cost">⭐ 별 30개 소모</div>
+          <div class="pi-note">
+            별 상점(★ 탭) → <b>"별관 해금"</b> 버튼을 누르면 됩니다.<br>
+            지금 바로 안 해도 OK — 언제든 열 수 있어요.
+          </div>
+        </div>
+        <div id="ai-btns">
+          <button id="ai-later" onclick="closeAnnexIntro()">나중에</button>
+          <button id="ai-now"   onclick="openStarFromAnnexIntro()">별 상점 바로 열기 ⭐</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 환생 확인 -->
+    <div id="prestige-confirm">
+      <div id="pc-box">
+        <div id="pc-title">매장 환생</div>
+        <div id="pc-msg">
+          정말 환생하시겠습니까?
+          <div class="pc-section pc-reset">
+            <b>리셋되는 것</b><br>
+            돈 · 레벨 · 진열대 · 업그레이드 · 전시 슬롯
+          </div>
+          <div class="pc-section pc-keep">
+            <b>유지되는 것</b><br>
+            카드 도감 · 별 · 다이아 · 별 상점 업그레이드
+          </div>
+          <div class="pc-section pc-reward">
+            <b>보상</b>: 영구 판매 수익 배수 <span class="pc-mul">+40%</span>
+          </div>
+        </div>
+        <div id="pc-btns">
+          <button id="pc-no"  onclick="closePrestigeConfirm()">취소</button>
+          <button id="pc-yes" onclick="confirmedPrestige()">환생하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AD 시청 확인 -->
+    <div id="ad-confirm">
+      <div id="adc-box">
+        <div id="adc-tag">광고</div>
+        <div id="adc-msg"></div>
+        <div id="adc-btns">
+          <button id="adc-no">취소</button>
+          <button id="adc-yes">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AD OVERLAY -->
+    <div id="ad-overlay">
+      <div id="ad-box">
+        <div id="ad-tag">광고</div>
+        <button id="ad-skip" onclick="closeAd()" aria-label="닫기">✕</button>
+        <div id="ad-art">광고 재생 중...</div>
+        <div id="ad-reward"></div>
+        <div id="ad-status"><span id="ad-stxt">광고 시청 중...</span> <span id="ad-count">5초</span></div>
+        <button id="ad-claim" disabled onclick="claimAdReward()">보상 받기</button>
+      </div>
+    </div>
+
+    <!-- 별관 / 본관 전환 (annex 해금시) -->
+    <button id="room-btn" onclick="switchRoom()" style="display:none">
+      <span id="room-btn-label">▶ 별관</span>
+    </button>
+
+    <button id="notice-btn" onclick="openNotice()" aria-label="공지사항">📢</button>
+    <button id="settings-btn" onclick="openSettings()" aria-label="설정"><svg viewBox="0 0 24 24"><path fill="#ffffff" d="M19.4 13c.04-.32.06-.66.06-1s-.02-.68-.07-1l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.488.488 0 0 0 13.5 1h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.6 11c-.05.32-.07.66-.07 1s.02.68.07 1l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64L19.4 13zM12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5z"/></svg></button>
+    <div id="tutorial-overlay">
+      <div id="tutorial-box">
+        <div id="tutorial-step"></div>
+        <div id="tutorial-text"></div>
+        <div id="tutorial-btns">
+          <button id="tutorial-skip" onclick="tutorialSkip()">건너뛰기</button>
+          <button id="tutorial-btn"  onclick="tutorialNext()">다음 ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT STRIP (평점 / 청결 / 손님) -->
+  <div id="stat-strip">
+    <button class="sstat hov-click" id="ss-rep"   onclick="openPanel('review')">⭐ 평점 <span id="ss-rep-val">50</span></button>
+    <span class="sstat-sep">|</span>
+    <button class="sstat hov-click" id="ss-clean" onclick="openPanel('stats')">🧹 청결 <span id="ss-clean-val">100</span></button>
+    <span class="sstat-sep">|</span>
+    <div id="ss-cust-wrap">
+      <span class="sstat">👥 손님 <b id="ss-cust-main">0</b>명</span>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div id="bottom-nav">
+    <button class="nav-btn" data-panel="collection" onclick="openPanel('collection')">
+      <span class="nav-ic" id="nav-ic-collection"></span><span>도감</span>
+    </button>
+    <button class="nav-btn" data-panel="restock" onclick="openPanel('restock')">
+      <span class="nav-ic" id="nav-ic-restock"></span><span>재고</span>
+    </button>
+    <button class="nav-btn" data-panel="gacha" onclick="openPanel('gacha')">
+      <span class="nav-ic" id="nav-ic-gacha"></span><span>뽑기</span>
+    </button>
+    <button class="nav-btn" data-panel="upgrade" onclick="openPanel('upgrade')">
+      <span class="nav-ic" id="nav-ic-upgrade"></span><span>업그레이드</span>
+    </button>
+    <button class="nav-btn" data-panel="goals" onclick="openPanel('goals')">
+      <span class="nav-ic" id="nav-ic-goals"></span><span>목표</span>
+    </button>
+    <button class="nav-btn" data-panel="showcase" onclick="openPanel('showcase')">
+      <span class="nav-ic" id="nav-ic-showcase"></span><span>전시</span>
+    </button>
+    <button class="nav-btn" data-panel="hire" onclick="openPanel('hire')">
+      <span class="nav-ic" id="nav-ic-hire"></span><span>고용</span>
+    </button>
+  </div>
+
+  <!-- PANELS -->
+  <div id="panel-restock"    class="panel"><div class="panel-title">재고 보충   <button class="panel-close" onclick="closePanel()">✕</button></div><div id="restock-body"></div></div>
+  <div id="panel-upgrade"    class="panel"><div class="panel-title">업그레이드 <button class="panel-close" onclick="closePanel()">✕</button></div><div id="upgrade-body"></div></div>
+  <div id="panel-collection" class="panel"><div class="panel-title">카드 도감  <button class="panel-close" onclick="closePanel()">✕</button></div><div id="collection-body"></div></div>
+  <div id="panel-gacha"      class="panel"><div class="panel-title">카드 뽑기  <button class="panel-close" onclick="closePanel()">✕</button></div><div id="gacha-body"></div></div>
+  <div id="panel-goals"      class="panel"><div class="panel-title">목표       <button class="panel-close" onclick="closePanel()">✕</button></div><div id="goals-body"></div></div>
+  <div id="panel-price"      class="panel"><div class="panel-title">카드 가격 설정 <button class="panel-close" onclick="closePanel()">✕</button></div><div id="price-body"></div></div>
+  <div id="panel-gem"        class="panel"><div class="panel-title">다이아 상점   <button class="panel-close" onclick="closePanel()">✕</button></div><div id="gem-body"></div></div>
+  <div id="panel-showcase"   class="panel"><div class="panel-title">전시 카드 관리 <button class="panel-close" onclick="closePanel()">✕</button></div><div id="showcase-body"></div></div>
+  <div id="panel-star"       class="panel"><div class="panel-title">별 상점       <button class="panel-close" onclick="closePanel()">✕</button></div><div id="star-body"></div></div>
+  <div id="panel-settings"   class="panel"><div class="panel-title">설정         <button class="panel-close" onclick="closePanel()">✕</button></div><div id="settings-body"></div></div>
+  <div id="panel-review"     class="panel"><div class="panel-title">손님 리뷰     <button class="panel-close" onclick="closePanel()">✕</button></div><div id="review-body"></div></div>
+  <div id="panel-hire"       class="panel"><div class="panel-title">직원 고용     <button class="panel-close" onclick="closePanel()">✕</button></div><div id="hire-body"></div></div>
+  <div id="panel-stats"      class="panel"><div class="panel-title">통계         <button class="panel-close" onclick="closePanel()">✕</button></div><div id="stats-body"></div></div>
+
+  <!-- 공지사항 모달 -->
+  <div id="notice-modal">
+    <div id="nm-box">
+      <button id="nm-close" onclick="closeNotice()">✕</button>
+      <div id="nm-title">📢 공지사항</div>
+      <div id="nm-list">
+        <div class="nm-item nm-new">
+          <div class="nm-tag">최신</div>
+          <div class="nm-date">2026-05-24</div>
+          <div class="nm-head">별관 카드 배틀 시스템 업데이트</div>
+          <div class="nm-body">별관 카드 테이블에 실제 카드 스프라이트가 표시됩니다.<br>배틀 게이지 속도 2배 + 레벨별 테이블 해금 추가.</div>
+        </div>
+        <div class="nm-item">
+          <div class="nm-tag nm-tag-plan">예정</div>
+          <div class="nm-date">Coming soon</div>
+          <div class="nm-head">PvP 카드 배틀 리그</div>
+          <div class="nm-body">손님들이 실시간 리그에 참가! 랭킹에 따라 추가 수익이 발생합니다.</div>
+        </div>
+        <div class="nm-item">
+          <div class="nm-tag nm-tag-plan">예정</div>
+          <div class="nm-date">Coming soon</div>
+          <div class="nm-head">희귀 팩 경매 시스템</div>
+          <div class="nm-body">특정 시간에 경매가 열려 손님들이 희귀 팩을 경쟁 입찰합니다.</div>
+        </div>
+        <div class="nm-item">
+          <div class="nm-tag nm-tag-plan">예정</div>
+          <div class="nm-date">Coming soon</div>
+          <div class="nm-head">2층 확장 (별관 2층)</div>
+          <div class="nm-body">별관에 2층을 추가해 더 넓은 배틀 공간과 전시 슬롯이 생깁니다.</div>
+        </div>
+        <div class="nm-item">
+          <div class="nm-tag nm-tag-plan">예정</div>
+          <div class="nm-date">Coming soon</div>
+          <div class="nm-head">카드 합성 시스템</div>
+          <div class="nm-body">중복 카드를 합성해 더 높은 등급의 카드를 만들 수 있게 됩니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="js/platform.js?v=1"></script>
+<script src="js/game.js?v=86"></script>
+<script>
+  // PWA Service Worker 등록 — Capacitor 환경에서는 스킵 (네이티브 캐싱 사용)
+  if ('serviceWorker' in navigator && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(err=>console.warn('SW register failed:', err));
+    });
+  }
+</script>
+</body>
+</html>

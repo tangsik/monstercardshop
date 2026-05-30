@@ -1,0 +1,33 @@
+{
+  "name": "Monster Card Shop",
+  "short_name": "MonsterShop",
+  "description": "몬스터 카드샵을 운영하며 손님에게 카드팩을 판매하는 방치형 게임",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#17101f",
+  "theme_color": "#43301f",
+  "lang": "ko-KR",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
